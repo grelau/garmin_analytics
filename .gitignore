@@ -1,0 +1,11 @@
+/data
+/dev_scripts
+/collect_lambda_env
+/collect/package
+
+/collect/collect.zip
+
+/infrastructure/env.tfvars
+/infrastructure/.terraform
+*.tfstate
+*.tfstate.backup
