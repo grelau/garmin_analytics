@@ -49,5 +49,6 @@ jobs:
       if: ${{ github.event_name == 'workflow_dispatch' }}
 
     - name: Terraform Apply
+      working-directory: ./infrastructure
       run: terraform apply plan.out
-      if: ${{ github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/master') }}
+      if: ${{ (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/master') || (github.event_name == 'push' && github.ref == 'refs/heads/master') }}
