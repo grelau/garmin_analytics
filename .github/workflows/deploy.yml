@@ -1,0 +1,39 @@
+name: Terraform CI
+
+on:
+  
+  push:
+    branches:
+      - master
+
+jobs:
+  terraform:
+    runs-on: ubuntu-latest
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up Terraform
+      uses: hashicorp/setup-terraform@v3
+      with:
+        terraform_version: "1.9.5"
+
+    - name: Build Lambda zip file
+      working-directory: ./collect
+      run: |
+        pip install -r requirements.txt -t package/
+        cp collect.py package/
+        cd package
+        zip -r ../collect.zip .
+
+    - name: Terraform Init
+      working-directory: ./infrastructure
+      run: terraform init -backend-config="bucket=garmin-tf-state" -backend-config="key=terraform/state.tfstate" -backend-config="region=eu-west-3"
+    
+    - name: Terraform Plan
+      working-directory: ./infrastructure
+      run: terraform plan

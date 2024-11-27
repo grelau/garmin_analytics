@@ -13,17 +13,17 @@ terraform {
 }
 
 resource "aws_vpc" "main" {
-    cidr_block = var.cidr_blocks[0]
+    cidr_block = "10.0.0.0/16"
 }
 
 resource "aws_subnet" "private" {
     vpc_id                  = aws_vpc.main.id
-    cidr_block              = var.cidr_blocks[1]
+    cidr_block              = "10.0.1.0/24"
 }
 
 resource "aws_subnet" "public" {
     vpc_id                  = aws_vpc.main.id
-    cidr_block              = var.cidr_blocks[2]
+    cidr_block              = "10.0.2.0/24"
     map_public_ip_on_launch = true
 }
 
@@ -92,11 +92,11 @@ data "aws_ami" "fck-nat-amzn2" {
   most_recent = true
   filter {
     name   = "name"
-    values = [var.fck-nat-ami-name]
+    values = ["fck-nat-amzn2-hvm-1.2.1*-x86_64-ebs"]
   }
   filter {
     name   = "owner-id"
-    values = [var.fck-nat-owner-id]
+    values = ["568608671756"]
   }
 }
 
