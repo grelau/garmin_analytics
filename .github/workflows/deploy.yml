@@ -14,7 +14,7 @@ on:
 
 jobs:
   plan:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     env:
       AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
       AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
@@ -22,15 +22,22 @@ jobs:
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
+
+    - name: Set up Python 3.13
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.13'
     
     - name: Set up Terraform
       uses: hashicorp/setup-terraform@v3
       with:
-        terraform_version: "1.9.5"
+        terraform_version: "1.10.2"
 
     - name: Build Lambda zip file
       working-directory: ./collect
       run: |
+        python --version
+        pip --version
         pip install -r requirements.txt -t package/
         cp collect.py package/
         cd package
@@ -44,11 +51,7 @@ jobs:
       working-directory: ./infrastructure
       run: terraform plan -out=plan.out
 
-    - name: Manual Approval
-      run: echo "Waiting for manual approval..."
-      if: ${{ github.event_name == 'workflow_dispatch' }}
-
     - name: Terraform Apply
       working-directory: ./infrastructure
       run: terraform apply plan.out
-      if: ${{ (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/master') || (github.event_name == 'push' && github.ref == 'refs/heads/master') }}
+      if: ${{ (github.event_name == 'workflow_dispatch') || (github.event_name == 'push' && github.ref == 'refs/heads/master') }}
