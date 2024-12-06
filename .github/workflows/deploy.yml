@@ -31,7 +31,7 @@ jobs:
     - name: Build Lambda zip file
       working-directory: ./collect
       run: |
-        pip install -r requirements.txt -t package/
+        pip install --platform manylinux2014_x86_64 --only-binary=:all: --target=package/ -r requirements.txt
         cp collect.py package/
         cd package
         zip -r ../collect.zip .
@@ -51,4 +51,4 @@ jobs:
     - name: Terraform Apply
       working-directory: ./infrastructure
       run: terraform apply plan.out
-      if: ${{ (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/master') || (github.event_name == 'push' && github.ref == 'refs/heads/master') }}
+      if: ${{ (github.event_name == 'workflow_dispatch') || (github.event_name == 'push' && github.ref == 'refs/heads/master') }}
