@@ -33,7 +33,7 @@ def request(event, context):
     logger.info("connected to API")
     
     today_date = datetime.now().strftime('%Y-%m-%d')
-    today_activities = garmin.get_activities_by_date('2024-11-25', today_date)
+    today_activities = garmin.get_activities_by_date(today_date, today_date)
     logger.info("Garmin connect responding")
     
     items = [
