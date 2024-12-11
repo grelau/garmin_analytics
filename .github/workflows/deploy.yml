@@ -22,6 +22,16 @@ jobs:
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
+
+    - name: Set up Python 3.13
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.13'
+
+    - name: Check Python and pip versions
+      run: |
+        python --version
+        pip --version
     
     - name: Set up Terraform
       uses: hashicorp/setup-terraform@v3
