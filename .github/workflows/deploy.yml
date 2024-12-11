@@ -31,7 +31,7 @@ jobs:
     - name: Build Lambda zip file
       working-directory: ./collect
       run: |
-        pip install --platform manylinux2014_x86_64 --only-binary=:all: --target=package/ -r requirements.txt
+        pip install -r requirements.txt -t package/
         cp collect.py package/
         cd package
         zip -r ../collect.zip .
@@ -43,10 +43,6 @@ jobs:
     - name: Terraform Plan
       working-directory: ./infrastructure
       run: terraform plan -out=plan.out
-
-    - name: Manual Approval
-      run: echo "Waiting for manual approval..."
-      if: ${{ github.event_name == 'workflow_dispatch' }}
 
     - name: Terraform Apply
       working-directory: ./infrastructure
