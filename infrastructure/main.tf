@@ -1,5 +1,10 @@
-provider "aws" {
-    region = "eu-west-3"
+terraform {
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = "= 5.77.0"
+    }
+  }
 }
 
 terraform {
@@ -10,6 +15,10 @@ terraform {
     dynamodb_table = "terraform-locks"
     encrypt        = true
   }
+}
+
+provider "aws" {
+    region = "eu-west-3"
 }
 
 resource "aws_vpc" "main" {
@@ -291,7 +300,7 @@ resource "aws_cloudwatch_event_target" "invoke_collect_lambda" {
 resource "aws_lambda_function" "main_lambda" {
     function_name    = "collect-lambda"
     handler          = "collect.request"
-    runtime          = "python3.8"
+    runtime          = "python3.13"
     role             = aws_iam_role.lambda_exec_role.arn
     filename         = "../collect/collect.zip"
     source_code_hash         = filebase64sha256("../collect/collect.zip")
