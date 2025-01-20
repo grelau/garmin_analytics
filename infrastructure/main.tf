@@ -207,7 +207,8 @@ resource "aws_iam_policy" "lambda_dynamodb_policy" {
                 "Action": [
                     "dynamodb:PutItem",
                     "dynamodb:UpdateItem",
-                    "dynamodb:BatchWriteItem"
+                    "dynamodb:BatchWriteItem",
+                    "dynamodb:Scan"
                 ],
                 "Resource": "${aws_dynamodb_table.activities.arn}"
             }
