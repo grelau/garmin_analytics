@@ -135,14 +135,14 @@ resource "aws_security_group" "lambda_sg" {
         from_port = 0
         to_port = 0
         protocol = -1
-        cidr_blocks = [aws_subnet.public.cidr_block] #le meme que le subnet public
+        cidr_blocks = [aws_subnet.public.cidr_block]
     }
     # Autoriser le trafic sortant vers Internet (pour l'API)
     egress {
       from_port   = 0
       to_port     = 0
       protocol    = -1
-      cidr_blocks = ["0.0.0.0/0"]  # Permet de sortir sur Internet pour accéder à l'API
+      cidr_blocks = ["0.0.0.0/0"]
     }
 
     tags = {
@@ -187,7 +187,8 @@ resource "aws_iam_policy" "lambda_s3_policy" {
                 "Effect": "Allow",
                 "Action": [
                     "s3:PutObject",
-                    "s3:PutObjectAcl"
+                    "s3:PutObjectAcl",
+                    "s3:ListBucket"
                 ],
                 "Resource": "${aws_s3_bucket.garmin_activity_bucket.arn}/*"
             }
@@ -297,7 +298,6 @@ resource "aws_cloudwatch_event_target" "invoke_collect_lambda" {
   arn       = aws_lambda_function.main_lambda.arn
 }
 
-# Fonction Lambda
 resource "aws_lambda_function" "main_lambda" {
     function_name    = "collect-lambda"
     handler          = "collect.request"
