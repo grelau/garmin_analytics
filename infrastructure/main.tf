@@ -191,7 +191,8 @@ resource "aws_iam_policy" "lambda_s3_policy" {
                     "s3:ListBucket",
                     "s3:GetObject"
                 ],
-                "Resource": "${aws_s3_bucket.garmin_activity_bucket.arn}/*"
+                "Resource": ["${aws_s3_bucket.garmin_activity_bucket.arn}",
+                             "${aws_s3_bucket.garmin_activity_bucket.arn}/*"]
             }
         ]
     })
