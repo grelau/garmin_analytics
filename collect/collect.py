@@ -28,13 +28,36 @@ def request(event, context):
     email = os.getenv('EMAIL')
     password = os.getenv('PASSWORD')
 
+    dynamodb = boto3.resource('dynamodb')
+    table = dynamodb.Table('ActivitiesTable')
+
+    s3 = boto3.client('s3')
+    bucket_name = 'garmin-activity-bucket'
+
+    #create ids list and checks if s3 and dynamo ids matches
+    dynamo_response = table.scan()
+    all_dynamo_data = dynamo_response.get('Items', [])
+    dynamo_ids = [int(item['activity_id']) for item in all_dynamo_data]
+    dynamo_ids.sort()
+
+    s3_files = s3.list_objects_v2(Bucket=bucket_name)['Contents']
+    s3_ids = [int(object['Key'].split('.json')[0]) for object in s3_files]
+    s3_ids.sort()
+
+    if dynamo_ids != s3_ids:
+        raise ValueError("les ids contenus dans dynamo et S3 devraient être systématiquement identiques")
+
+
     garmin = garminconnect.Garmin(email, password)
     garmin.login()
     logger.info("connected to API")
     
-    today_date = datetime.now().strftime('%Y-%m-%d')
-    today_activities = garmin.get_activities_by_date(today_date, today_date)
+    all_activities = garmin.get_activities(0,10000)
     logger.info("Garmin connect responding")
+    
+    garmin_ids = [activity['activityId'] for activity in all_activities]
+    missing_ids = list(set(garmin_ids) - set(dynamo_ids))
+    logger.info(str(len(missing_ids)) + " activities to add")
     
     items = [
     {
@@ -52,22 +75,15 @@ def request(event, context):
         'aerobicTrainingEffect': convert_to_decimal(activity.get('aerobicTrainingEffect')),
         'anaerobicTrainingEffect': convert_to_decimal(activity.get('anaerobicTrainingEffect'))
     }
-    for activity in today_activities
+    for activity in all_activities
+    if activity['activityId'] in missing_ids
 ]
     
-    dynamodb = boto3.resource('dynamodb')
-    table = dynamodb.Table('ActivitiesTable')
-    logger.info("Dynamo table found")
-
     for batch in chunks(items, 25):
         with table.batch_writer() as batch_writer:
             for item in batch:
                 batch_writer.put_item(Item=item)
-    logger.info("Item written in Dynamo")
-
-    
-    s3 = boto3.client('s3')
-    bucket_name = 'garmin-activity-bucket'
+    logger.info("Items written in Dynamo")
 
     for item in items:
         response = garmin.get_activity_details(item['activity_id'])
@@ -76,7 +92,7 @@ def request(event, context):
             Key=f"{item['activity_id']}.json",
             Body=json.dumps(response, indent=4))
 
-    logger.info("Json written to S3")
+    logger.info("Jsons written to S3")
 
     
     return {
