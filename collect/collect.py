@@ -40,7 +40,8 @@ def request(event, context):
     dynamo_ids = [int(item['activity_id']) for item in all_dynamo_data]
     dynamo_ids.sort()
 
-    s3_files = s3.list_objects_v2(Bucket=bucket_name)['Contents']
+    s3_response = s3.list_objects_v2(Bucket=bucket_name)
+    s3_files = s3_response.get('Contents', [])
     s3_ids = [int(object['Key'].split('.json')[0]) for object in s3_files]
     s3_ids.sort()
 
