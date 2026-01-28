@@ -1,1 +1,1 @@
-RANDOM
+R
