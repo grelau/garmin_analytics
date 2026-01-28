@@ -60,6 +60,7 @@ def hr_zones():
         zones["z5"] += int(item.get("time_in_hr_zone", {}).get("z5", 0))
 
     return jsonify(zones)
+    print('juste test les commits')
 
 
 if __name__ == "__main__":
