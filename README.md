@@ -1,1 +1,1 @@
-RA
+Garmin analytics
