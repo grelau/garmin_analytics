@@ -1,7 +1,7 @@
 /data
 /dev_scripts
 /collect_lambda_env
-/app_env
+app/app_env/
 /collect/package
 
 /collect/collect.zip

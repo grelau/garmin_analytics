@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>Garmin Analytics</title>
+
+    <!-- FullCalendar -->
+    <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.js"></script>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 40px;
+        }
+        .layout {
+            display: flex;
+            align-items: flex-start;
+            gap: 40px;
+        }
+
+        #hrPie {
+            width: 350px;
+            height: 350px;
+            flex-shrink: 0;
+        }
+
+        #calendar {
+            flex: 1;
+        }
+    </style>
+</head>
+<body>
+
+<h1>Garmin Analytics</h1>
+
+<div class="layout">
+    <canvas id="hrPie"></canvas>
+    <div id="calendar"></div>
+</div>
+
+<script>
+/* 1️⃣ Variables globales */
+let pieChart;
+
+/* 2️⃣ Fonctions utilitaires */
+function fetchHrZones(start, end) {
+    console.log("fetchHrZones appelée", start, end);
+    fetch(`/api/hr-zones?start=${start}&end=${end}`)
+        .then(res => res.json())
+        .then(data => updatePieChart(data));
+}
+
+function updatePieChart(zones) {
+    console.log(zones);
+    const data = [
+        zones.z1,
+        zones.z2,
+        zones.z3,
+        zones.z4,
+        zones.z5
+    ];
+
+    if (pieChart) {
+        pieChart.data.datasets[0].data = data;
+        pieChart.update();
+        return;
+    }
+
+    pieChart = new Chart(document.getElementById("hrPie"), {
+        type: "pie",
+        data: {
+            labels: ["Z1", "Z2", "Z3", "Z4", "Z5"],
+            datasets: [{
+                data: data,
+                backgroundColor: [
+                    "#9e9e9e",
+                    "#2196f3",
+                    "#4caf50",
+                    "#ff9800",
+                    "#f44336"
+                ]
+            }]
+        },
+        options: {
+            plugins: {
+                tooltip: {
+                    callbacks: {
+                    label: function(context) {
+                        const value = context.raw;
+                        const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                        const percent = total ? ((value / total) * 100).toFixed(1) : 0;
+                        return `${context.label}: ${percent}%`;
+                    }
+                    }
+                }
+            }
+        }
+
+    });
+}
+document.addEventListener('DOMContentLoaded', function() {
+
+    const calendar = new FullCalendar.Calendar(
+        document.getElementById('calendar'),
+        {
+            initialView: 'dayGridMonth',
+            events: '/api/activities',
+            datesSet: function(info) {
+                fetchHrZones(info.startStr, info.endStr);
+            },
+            eventContent: function(arg) {
+                const d = arg.event.extendedProps;
+
+                return {
+                    html: `
+                        <div>
+                            <strong>${arg.event.title}</strong><br>
+                            ${(d.distance / 1000).toFixed(1)} km<br>
+                            ${d.duration_min} min
+                        </div>
+                    `
+                };
+            }
+        }
+    );
+    console.log('coucou JS')
+    calendar.render();
+});
+</script>
+
+
+</body>
+</html>
