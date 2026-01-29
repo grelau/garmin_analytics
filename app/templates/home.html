@@ -6,8 +6,9 @@
 
     <!-- FullCalendar -->
     <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.js"></script>
-
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
+
 
     <style>
         body {
@@ -20,12 +21,10 @@
             gap: 40px;
         }
 
-        #hrPie {
+        #chart_container {
             width: 350px;
             height: 350px;
-            flex-shrink: 0;
         }
-
         #calendar {
             flex: 1;
         }
@@ -36,8 +35,18 @@
 <h1>Garmin Analytics</h1>
 
 <div class="layout">
-    <canvas id="hrPie"></canvas>
     <div id="calendar"></div>
+    <div id="chart_container">
+        <canvas id="hrPie"></canvas>
+        <div id="stats">
+            <p><strong>Volume :</strong></p>
+            <p>📅 Activités : <span id="total-activities">–</span></p>
+            <p>⏱ Temps : <span id="total-duration">–</span></p>
+            <p>🏃 Distance : <span id="total-distance">–</span> km</p>
+            <p>⛰️ D+ : <span id="total-elevation-gain">–</span></p>
+        </div>
+
+    </div>
 </div>
 
 <script>
@@ -50,6 +59,18 @@ function fetchHrZones(start, end) {
     fetch(`/api/hr-zones?start=${start}&end=${end}`)
         .then(res => res.json())
         .then(data => updatePieChart(data));
+}
+
+function getTotalVolume(start, end) {
+    console.log("getTotalVolume appelée", start, end);
+    fetch(`/api/total-volume?start=${start}&end=${end}`)
+        .then(res => res.json())
+        .then(data => {
+            document.getElementById("total-activities").textContent = data.total_activities;
+            document.getElementById("total-distance").textContent = data.total_distance;
+            document.getElementById("total-duration").textContent = data.total_duration;
+            document.getElementById("total-elevation-gain").textContent = data.total_elevation_gain;
+        });
 }
 
 function updatePieChart(zones) {
@@ -85,19 +106,35 @@ function updatePieChart(zones) {
         },
         options: {
             plugins: {
+                datalabels: {
+                    color: "#fff",
+                    font: {
+                        weight: "bold",
+                        size: 14
+                    },
+                    align: "end",
+                    offset: 16,  
+                    formatter: (value, context) => {
+                        const dataArr = context.chart.data.datasets[0].data;
+                        const total = dataArr.reduce((a, b) => a + b, 0);
+                        if (!total || value === 0) return "";
+                        const percent = (value / total * 100).toFixed(1);
+                        return `${percent}%`;
+                    }
+                },
                 tooltip: {
                     callbacks: {
-                    label: function(context) {
-                        const value = context.raw;
-                        const total = context.dataset.data.reduce((a, b) => a + b, 0);
-                        const percent = total ? ((value / total) * 100).toFixed(1) : 0;
-                        return `${context.label}: ${percent}%`;
-                    }
+                        label: function(context) {
+                            const value = context.raw;
+                            const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                            const percent = total ? ((value / total) * 100).toFixed(1) : 0;
+                            return `${context.label}: ${percent}%`;
+                        }
                     }
                 }
             }
-        }
-
+        },
+        plugins: [ChartDataLabels]
     });
 }
 document.addEventListener('DOMContentLoaded', function() {
@@ -109,6 +146,7 @@ document.addEventListener('DOMContentLoaded', function() {
             events: '/api/activities',
             datesSet: function(info) {
                 fetchHrZones(info.startStr, info.endStr);
+                getTotalVolume(info.startStr, info.endStr);
             },
             eventContent: function(arg) {
                 const d = arg.event.extendedProps;
