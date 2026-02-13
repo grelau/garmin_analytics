@@ -1,14 +1,85 @@
 from flask import Flask, render_template, jsonify, request
 import boto3
 app = Flask(__name__)
-from boto3.dynamodb.conditions import Attr
+from boto3.dynamodb.conditions import Attr, Key
+from datetime import datetime, timedelta
 
 dynamodb = boto3.resource("dynamodb")
 table = dynamodb.Table("ActivitiesTable")
 
+def parse_fc_date(date_str: str):
+    dt = datetime.fromisoformat(date_str)
+    return dt.replace(tzinfo=None)
+
+def build_pr_history(sorted_array):
+    pr_history = {}
+    best_so_far = {}
+#    MAX_TIME = {
+#    "5000": 40 * 60,
+#    "10000": 80 * 60,
+#    "21098": 3 * 3600,
+#    "42195": 6 * 3600
+#}
+
+    for date, distances in sorted_array:
+        for distance, value in distances.items():
+
+            if value is None:
+                continue
+
+            #if distance in MAX_TIME and value > MAX_TIME[distance]:
+            #    continue
+
+            # initialisation si première fois
+            if distance not in best_so_far:
+                best_so_far[distance] = value
+                pr_history.setdefault(distance, []).append({
+                    "date": datetime.strptime(date, "%Y-%m-%d %H:%M:%S").isoformat(),
+                    "value": int(value)
+                })
+                continue
+
+            # record si temps plus petit
+            if value < best_so_far[distance]:
+                best_so_far[distance] = value
+                pr_history.setdefault(distance, []).append({
+                    "date": datetime.strptime(date, "%Y-%m-%d %H:%M:%S").isoformat(),
+                    "value": int(value)
+                })
+    #print(pr_history)
+    return pr_history
+
+@app.route("/api/performance")
+def performances_data():
+
+    RUNNING_LABELS = ['running', 'track_running', 'obstacle_run']
+    CYCLING_LABELS = ['road_biking', 'virtual_ride', 'cycling', 'indoor_cycling']
+
+    sport = request.args.get("sport")
+    print(sport)
+
+    response = table.scan(
+        FilterExpression=Attr("activity_best_times").exists()
+    )
+
+    items = response["Items"]
+    print(len(items))
+    print(items[0]['activityType']['typeKey'])
+    if sport == 'cycling':
+        activities = [(item["startTimeLocal"], item["activity_best_times"]) for item in items if item['activityType']['typeKey'] in CYCLING_LABELS]
+    elif sport == 'running':
+        activities = [(item["startTimeLocal"], item["activity_best_times"]) for item in items if item['activityType']['typeKey'] in RUNNING_LABELS]
+    activities = sorted(activities, key=lambda x: x[0])
+    print(len(activities))
+    return jsonify(build_pr_history(activities))
+
 @app.route("/")
 def home():
     return render_template("home.html")
+
+@app.route("/performance")
+def performance():
+    return render_template("performance.html")
 
 
 @app.route("/api/activities")
@@ -26,7 +97,7 @@ def activities():
             "title": item["activityType"]["typeKey"].capitalize(),
             "start": item["startTimeLocal"].split(" ")[0],  # YYYY-MM-
             "distance": item["distance"],
-            "duration_min": int(item["duration"] / 60)
+            "duration_sec": int(item["duration"])
         })
 
     return jsonify(events)
@@ -38,12 +109,23 @@ def hr_zones():
 
     print(start, end)
 
+    start = parse_fc_date(start)
+    end = parse_fc_date(end)
+
+    # rendre end exclusif pour un between inclusif
+    end = end - timedelta(seconds=1)
+
+    start = start.strftime("%Y-%m-%d %H:%M:%S")
+    end = end.strftime("%Y-%m-%d %H:%M:%S")
+
     response = table.scan(
         FilterExpression=Attr("startTimeLocal").between(start, end)
     )
 
-    print(response['Items'][0]['time_in_hr_zone']['z0'])
+    #print(response['Items'][0]['time_in_hr_zone']['z0'])
     zones = {
+        "Nodata": 0,
+        "z0": 0,
         "z1": 0,
         "z2": 0,
         "z3": 0,
@@ -52,11 +134,32 @@ def hr_zones():
     }
 
     for item in response["Items"]:
+        zones["Nodata"] += int(item.get("time_in_hr_zone", {}).get("NoValue", 0))
+        zones["z0"] += int(item.get("time_in_hr_zone", {}).get("z0", 0))
         zones["z1"] += int(item.get("time_in_hr_zone", {}).get("z1", 0))
         zones["z2"] += int(item.get("time_in_hr_zone", {}).get("z2", 0))
         zones["z3"] += int(item.get("time_in_hr_zone", {}).get("z3", 0))
         zones["z4"] += int(item.get("time_in_hr_zone", {}).get("z4", 0))
         zones["z5"] += int(item.get("time_in_hr_zone", {}).get("z5", 0))
+
+    return jsonify(zones)
+
+@app.route("/api/activity-details")
+def activity_details():
+    activity_id = request.args.get("id")
+    response = table.query(
+        KeyConditionExpression=Key("activity_id").eq(int(activity_id))
+    )
+    activity = response['Items'][0]
+    zones = {
+        "Nodata": int(activity.get("time_in_hr_zone", {}).get("NoValue", 0)),
+        "z0": int(activity.get("time_in_hr_zone", {}).get("z0", 0)),
+        "z1": int(activity.get("time_in_hr_zone", {}).get("z1", 0)),
+        "z2": int(activity.get("time_in_hr_zone", {}).get("z2", 0)),
+        "z3": int(activity.get("time_in_hr_zone", {}).get("z3", 0)),
+        "z4": int(activity.get("time_in_hr_zone", {}).get("z4", 0)),
+        "z5": int(activity.get("time_in_hr_zone", {}).get("z5", 0))
+    }
 
     return jsonify(zones)
 
@@ -76,6 +179,15 @@ def total_volume():
     end = request.args.get("end")
 
     print(start, end)
+
+    start = parse_fc_date(start)
+    end = parse_fc_date(end)
+
+    # rendre end exclusif pour un between inclusif
+    end = end - timedelta(seconds=1)
+
+    start = start.strftime("%Y-%m-%d %H:%M:%S")
+    end = end.strftime("%Y-%m-%d %H:%M:%S")
 
     response = table.scan(
         FilterExpression=Attr("startTimeLocal").between(start, end)

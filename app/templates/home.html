@@ -1,38 +1,10 @@
-<!DOCTYPE html>
-<html lang="fr">
-<head>
-    <meta charset="UTF-8">
-    <title>Garmin Analytics</title>
+{% extends "base.html" %}
 
-    <!-- FullCalendar -->
-    <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
+{% block title %}Dashboard - Garmin Analytics{% endblock %}
 
+{% block content %}
 
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            margin: 40px;
-        }
-        .layout {
-            display: flex;
-            align-items: flex-start;
-            gap: 40px;
-        }
-
-        #chart_container {
-            width: 350px;
-            height: 350px;
-        }
-        #calendar {
-            flex: 1;
-        }
-    </style>
-</head>
-<body>
-
-<h1>Garmin Analytics</h1>
+<h1>Training</h1>
 
 <div class="layout">
     <div id="calendar"></div>
@@ -45,129 +17,12 @@
             <p>🏃 Distance : <span id="total-distance">–</span> km</p>
             <p>⛰️ D+ : <span id="total-elevation-gain">–</span></p>
         </div>
-
     </div>
 </div>
 
-<script>
-/* 1️⃣ Variables globales */
-let pieChart;
+<script src="{{ url_for('static', filename='js/api.js') }}"></script>
+<script src="{{ url_for('static', filename='js/chart.js') }}"></script>
+<script src="{{ url_for('static', filename='js/calendar.js') }}"></script>
 
-/* 2️⃣ Fonctions utilitaires */
-function fetchHrZones(start, end) {
-    console.log("fetchHrZones appelée", start, end);
-    fetch(`/api/hr-zones?start=${start}&end=${end}`)
-        .then(res => res.json())
-        .then(data => updatePieChart(data));
-}
+{% endblock %}
 
-function getTotalVolume(start, end) {
-    console.log("getTotalVolume appelée", start, end);
-    fetch(`/api/total-volume?start=${start}&end=${end}`)
-        .then(res => res.json())
-        .then(data => {
-            document.getElementById("total-activities").textContent = data.total_activities;
-            document.getElementById("total-distance").textContent = data.total_distance;
-            document.getElementById("total-duration").textContent = data.total_duration;
-            document.getElementById("total-elevation-gain").textContent = data.total_elevation_gain;
-        });
-}
-
-function updatePieChart(zones) {
-    console.log(zones);
-    const data = [
-        zones.z1,
-        zones.z2,
-        zones.z3,
-        zones.z4,
-        zones.z5
-    ];
-
-    if (pieChart) {
-        pieChart.data.datasets[0].data = data;
-        pieChart.update();
-        return;
-    }
-
-    pieChart = new Chart(document.getElementById("hrPie"), {
-        type: "pie",
-        data: {
-            labels: ["Z1", "Z2", "Z3", "Z4", "Z5"],
-            datasets: [{
-                data: data,
-                backgroundColor: [
-                    "#9e9e9e",
-                    "#2196f3",
-                    "#4caf50",
-                    "#ff9800",
-                    "#f44336"
-                ]
-            }]
-        },
-        options: {
-            plugins: {
-                datalabels: {
-                    color: "#fff",
-                    font: {
-                        weight: "bold",
-                        size: 14
-                    },
-                    align: "end",
-                    offset: 16,  
-                    formatter: (value, context) => {
-                        const dataArr = context.chart.data.datasets[0].data;
-                        const total = dataArr.reduce((a, b) => a + b, 0);
-                        if (!total || value === 0) return "";
-                        const percent = (value / total * 100).toFixed(1);
-                        return `${percent}%`;
-                    }
-                },
-                tooltip: {
-                    callbacks: {
-                        label: function(context) {
-                            const value = context.raw;
-                            const total = context.dataset.data.reduce((a, b) => a + b, 0);
-                            const percent = total ? ((value / total) * 100).toFixed(1) : 0;
-                            return `${context.label}: ${percent}%`;
-                        }
-                    }
-                }
-            }
-        },
-        plugins: [ChartDataLabels]
-    });
-}
-document.addEventListener('DOMContentLoaded', function() {
-
-    const calendar = new FullCalendar.Calendar(
-        document.getElementById('calendar'),
-        {
-            initialView: 'dayGridMonth',
-            events: '/api/activities',
-            datesSet: function(info) {
-                fetchHrZones(info.startStr, info.endStr);
-                getTotalVolume(info.startStr, info.endStr);
-            },
-            eventContent: function(arg) {
-                const d = arg.event.extendedProps;
-
-                return {
-                    html: `
-                        <div>
-                            <strong>${arg.event.title}</strong><br>
-                            ${(d.distance / 1000).toFixed(1)} km<br>
-                            ${d.duration_min} min
-                        </div>
-                    `
-                };
-            }
-        }
-    );
-    console.log('coucou JS')
-    calendar.render();
-});
-</script>
-
-
-</body>
-</html>

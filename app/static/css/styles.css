@@ -1,0 +1,69 @@
+body {
+    font-family: Arial, sans-serif;
+    margin: 40px;
+}
+
+
+.container {
+    padding: 40px;
+}
+
+.navbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 15px 40px;
+    background-color: #111;
+}
+
+.brand {
+    color: white;
+    font-weight: bold;
+    text-decoration: none;
+    font-size: 18px;
+}
+
+.nav-right {
+    display: flex;
+    gap: 20px;
+}
+
+.nav-link {
+    color: #ccc;
+    text-decoration: none;
+    font-weight: 500;
+}
+
+.nav-link:hover {
+    color: white;
+}
+
+.layout {
+    display: flex;
+    align-items: flex-start;
+    gap: 40px;
+}
+
+#chart_container {
+    width: 350px;
+    height: 350px;
+}
+
+#calendar {
+    flex: 1;
+}
+
+.chart-wrapper {
+    width: 100%;
+    max-width: 900px;
+    margin-top: 40px;
+}
+
+.event-selected {
+  background-color: #90f990 !important;
+  border-color: #42e51e !important;
+}
+
+.fc-event {
+  cursor: pointer;
+}
