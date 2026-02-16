@@ -1,122 +1,3 @@
-/*
-document.addEventListener("DOMContentLoaded", function () {
-
-    fetch("/api/performance")
-        .then(res => res.json())
-        .then(data => initChart(data));
-
-});
-
-function initChart(data) {
-
-    const datasets = [];
-
-    const distanceMap = {
-        "5000": "5k",
-        "10000": "10k",
-        "21098": "21k",
-        "42195": "42k"
-    };
-
-    const colors = {
-        "5k": "#4caf50",
-        "10k": "#2196f3",
-        "21k": "#ff9800",
-        "42k": "#f44336"
-    };
-
-    Object.keys(distanceMap).forEach(distance => {
-
-        if (!data[distance]) return; // skip si pas présent
-
-        const label = distanceMap[distance];
-
-        const points = data[distance].map(entry => ({
-            x: entry.date,
-            y: entry.value / 60
-        }));
-
-        datasets.push({
-            label: label,
-            data: points,
-            borderColor: colors[label] || "#999",
-            tension: 0.2
-        });
-    });
-
-const ctx = document.getElementById("prChart");
-
-const chart = new Chart(ctx, {
-    type: "line",
-    data: { datasets: datasets },
-    options: {
-        responsive: true,
-
-        interaction: {
-            mode: "nearest",
-            intersect: false
-        },
-
-        plugins: {
-            legend: {
-                onHover: (event) => {
-                    event.native.target.style.cursor = 'pointer';
-                },
-                onLeave: (event) => {
-                    event.native.target.style.cursor = 'default';
-                },
-                onClick: function (e, legendItem, legend) {
-                    const chart = legend.chart;
-                    const index = legendItem.datasetIndex;
-
-                    // combien de datasets visibles ?
-                    const visibleCount = chart.data.datasets.filter(ds => !ds.hidden).length;
-
-                    if (visibleCount === 1) {
-                        // 🔁 Si déjà focus → on réaffiche tout
-                        chart.data.datasets.forEach(ds => ds.hidden = false);
-                    } else {
-                        // 🔥 Sinon on cache tout sauf celui cliqué
-                        chart.data.datasets.forEach((ds, i) => {
-                            ds.hidden = i !== index;
-                        });
-                    }
-
-                    chart.update();
-                }
-            }
-        },
-
-        scales: {
-            x: {
-                type: "time",
-                time: {
-                    unit: "month"
-                }
-            },
-            y: {
-                reverse: false,
-                title: {
-                    display: true,
-                    text: "Temps (min)"
-                }
-            }
-        },
-
-        elements: {
-            line: {
-                borderWidth: 2
-            },
-            point: {
-                radius: 4,
-                hoverRadius: 6
-            }
-        }
-    }
-});
-}
-*/
-
 document.addEventListener("DOMContentLoaded", function () {
 
     const sportSelector = document.getElementById("sportSelector");
@@ -134,8 +15,8 @@ document.addEventListener("DOMContentLoaded", function () {
         fetch(`/api/performance?sport=${sport}&start=${startDate}&end=${endDate}`)
             .then(res => res.json())
             .then(data => {
-                initChart(data, sport);
-                updateStats(data);
+                initChart(data['pr'], sport);
+                updateStats(data['training']);
             });
     }
 
@@ -236,31 +117,12 @@ document.addEventListener("DOMContentLoaded", function () {
     function updateStats(data) {
         // calcul simple d'exemple
         // PR amélioration : (dernier PR - premier PR) / premier PR
-        let allValues = [];
-        Object.values(data).forEach(arr => arr.forEach(entry => allValues.push(entry.value)));
 
-        if (allValues.length === 0) {
-            document.getElementById("improvement").textContent = "0%";
-            document.getElementById("weeklyVolume").textContent = "0h";
-            document.getElementById("monthlyVolume").textContent = "0h";
-            document.getElementById("totalVolume").textContent = "0h";
-            return;
-        }
+        document.getElementById("improvement").textContent = `4%`;
 
-        allValues.sort((a,b) => a-b);
-        const first = allValues[0];
-        const last = allValues[allValues.length-1];
-        const improvement = ((first - last)/first*100).toFixed(1);
-        document.getElementById("improvement").textContent = `${improvement}%`;
-
-        // volume moyen exemple
-        const totalSeconds = allValues.reduce((acc,v) => acc+v,0);
-        const totalWeeks = 52; // placeholder
-        const totalMonths = 12; // placeholder
-        document.getElementById("weeklyVolume").textContent = `${(totalSeconds/(3600*totalWeeks)).toFixed(1)}h`;
-        document.getElementById("monthlyVolume").textContent = `${(totalSeconds/(3600*totalMonths)).toFixed(1)}h`;
-        document.getElementById("totalVolume").textContent = `${(totalSeconds/3600).toFixed(1)}h`;
+        document.getElementById("weeklyVolume").textContent = `${data.weekly_distance}km`;
+        document.getElementById("monthlyVolume").textContent = `${data.monthly_distance}km`;
+        document.getElementById("totalVolume").textContent = `${data.total_distance}km`;
     }
-
 });
 

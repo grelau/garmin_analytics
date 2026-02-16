@@ -1,8 +1,11 @@
 from flask import Flask, render_template, jsonify, request
 import boto3
 app = Flask(__name__)
-from boto3.dynamodb.conditions import Attr, Key
+from boto3.dynamodb.conditions import Attr, Key, And
 from datetime import datetime, timedelta
+
+RUNNING_LABELS = ['running', 'track_running', 'obstacle_run']
+CYCLING_LABELS = ['road_biking', 'virtual_ride', 'cycling', 'indoor_cycling']
 
 dynamodb = boto3.resource("dynamodb")
 table = dynamodb.Table("ActivitiesTable")
@@ -10,6 +13,18 @@ table = dynamodb.Table("ActivitiesTable")
 def parse_fc_date(date_str: str):
     dt = datetime.fromisoformat(date_str)
     return dt.replace(tzinfo=None)
+
+def diff_days_months(start_str, end_str, fmt="%Y-%m-%d"):
+    start = datetime.strptime(start_str, fmt)
+    end = datetime.strptime(end_str, fmt)
+
+    delta = end - start
+    days = delta.days
+
+    # mois fractionnels (approximation basée sur 30.44 jours = moyenne réelle)
+    months = days / 30.44
+
+    return days / 7, months
 
 def build_pr_history(sorted_array):
     pr_history = {}
@@ -46,32 +61,82 @@ def build_pr_history(sorted_array):
                     "date": datetime.strptime(date, "%Y-%m-%d %H:%M:%S").isoformat(),
                     "value": int(value)
                 })
-    #print(pr_history)
     return pr_history
 
 @app.route("/api/performance")
 def performances_data():
 
-    RUNNING_LABELS = ['running', 'track_running', 'obstacle_run']
-    CYCLING_LABELS = ['road_biking', 'virtual_ride', 'cycling', 'indoor_cycling']
-
     sport = request.args.get("sport")
-    print(sport)
+    start = request.args.get("start")
+    end = request.args.get("end")
+    filter_expr = Attr("activity_best_times").exists()
+    date_attr = Attr("startTimeLocal")
+
+    if start and end:
+        filter_expr = And(filter_expr, date_attr.between(start, end))
+    elif start:
+        filter_expr = And(filter_expr, date_attr.gte(start))
+    elif end:
+        filter_expr = And(filter_expr, date_attr.lte(end))
 
     response = table.scan(
-        FilterExpression=Attr("activity_best_times").exists()
+        FilterExpression=filter_expr
     )
 
     items = response["Items"]
     print(len(items))
-    print(items[0]['activityType']['typeKey'])
     if sport == 'cycling':
         activities = [(item["startTimeLocal"], item["activity_best_times"]) for item in items if item['activityType']['typeKey'] in CYCLING_LABELS]
     elif sport == 'running':
         activities = [(item["startTimeLocal"], item["activity_best_times"]) for item in items if item['activityType']['typeKey'] in RUNNING_LABELS]
     activities = sorted(activities, key=lambda x: x[0])
     print(len(activities))
-    return jsonify(build_pr_history(activities))
+    tr_stats = get_training_stats(items, sport)
+
+    print(tr_stats)
+
+    days, month = diff_days_months(start, end)
+
+    print(days, month)
+
+    tr_stats['total_duration'] = tr_stats['total_duration'] / 3600
+    tr_stats['total_distance'] = tr_stats['total_distance'] / 1000
+
+    tr_stats['weekly_duration'] = tr_stats['duration'] / 3600 / days
+    tr_stats['weekly_distance'] = tr_stats['distance'] / 1000 / days
+
+    tr_stats['monthly_duration'] = tr_stats['duration'] / 3600 / month
+    tr_stats['monthly_distance'] = tr_stats['distance'] / 1000 / month
+
+    all_stats = {
+        'training': tr_stats,
+        'pr': build_pr_history(activities)
+    }
+
+    return jsonify(all_stats)
+
+def get_training_stats(items, sport):
+    response = table.scan()
+    all_items = response["Items"]
+    if sport == 'cycling':
+        all_activities = [(int(item["duration"]), int(item["distance"])) for item in all_items if item['activityType']['typeKey'] in CYCLING_LABELS]
+        activities = [(int(item["duration"]), int(item["distance"])) for item in items if item['activityType']['typeKey'] in CYCLING_LABELS]
+    elif sport == 'running':
+        all_activities = [(int(item["duration"]), int(item["distance"])) for item in all_items if item['activityType']['typeKey'] in RUNNING_LABELS]
+        activities = [(int(item["duration"]), int(item["distance"])) for item in items if item['activityType']['typeKey'] in RUNNING_LABELS]
+    tr_stats = {
+        'total_distance': 0,
+        'total_duration': 0,
+        'distance': 0,
+        'duration': 0,
+    }
+    for a in all_activities:
+        tr_stats['total_distance'] += a[1]
+        tr_stats['total_duration'] += a[0]
+    for a in activities:
+        tr_stats['distance'] += a[1]
+        tr_stats['duration'] += a[0]
+    return tr_stats
 
 @app.route("/")
 def home():
