@@ -98,9 +98,12 @@ SWIMMING_LABELS = ['lap_swimming', 'swimming']
 dynamodb = boto3.resource("dynamodb", region_name="eu-west-3")
 table = dynamodb.Table("ActivitiesTable")
 
-response = table.scan()
+response = table.scan(
+    FilterExpression=Attr("time_in_hr_zone").not_exists()
+)
 
 items = response["Items"]
+print(len(items))
 activities = [(item["activity_id"], item['activityType']['typeKey'], item['duration']) for item in items]
 
 s3 = boto3.client("s3")

@@ -92,14 +92,27 @@ document.addEventListener("DOMContentLoaded", function () {
                         onClick: function(e, legendItem, legend) {
                             const chart = legend.chart;
                             const index = legendItem.datasetIndex;
-                            const visibleCount = chart.data.datasets.filter(ds => !ds.hidden).length;
-
-                            if (visibleCount === 1) {
-                                chart.data.datasets.forEach(ds => ds.hidden = false);
+                            const datasets = chart.data.datasets;
+                        
+                            const clickedDataset = datasets[index];
+                            const isOnlyVisible =
+                                datasets.filter(ds => !ds.hidden).length === 1 && !clickedDataset.hidden;
+                        
+                            if (isOnlyVisible) {
+                                // reset : tout afficher
+                                datasets.forEach(ds => ds.hidden = false);
+                                updateImprovement(null, null);
                             } else {
-                                chart.data.datasets.forEach((ds, i) => ds.hidden = i !== index);
+                                // afficher uniquement celui cliqué
+                                datasets.forEach((ds, i) => ds.hidden = i !== index);
+                            
+                                const data = datasets[index].data;
+                                const firstTime = data[0].y;
+                                const lastTime = data.at(-1).y;
+                            
+                                updateImprovement(firstTime, lastTime);
                             }
-
+                        
                             chart.update();
                         }
                     }
@@ -118,11 +131,24 @@ document.addEventListener("DOMContentLoaded", function () {
         // calcul simple d'exemple
         // PR amélioration : (dernier PR - premier PR) / premier PR
 
-        document.getElementById("improvement").textContent = `4%`;
+        document.getElementById("improvement").textContent = `Select a distance to show`;
 
-        document.getElementById("weeklyVolume").textContent = `${data.weekly_distance}km`;
-        document.getElementById("monthlyVolume").textContent = `${data.monthly_distance}km`;
-        document.getElementById("totalVolume").textContent = `${data.total_distance}km`;
+        document.getElementById("weeklyVolume").textContent = `${data.weekly_distance.toFixed(1)}km`;
+        document.getElementById("monthlyVolume").textContent = `${data.monthly_distance.toFixed(1)}km`;
+        document.getElementById("totalVolume").textContent = `${data.total_distance.toFixed(1)}km`;
     }
+
+    function updateImprovement(first, last) {
+        const el = document.getElementById("improvement");
+
+        if (first == null || last == null) {
+            el.textContent = "Select a distance to show";
+            return;
+        }
+
+        const improvement = ((first - last) / first) * 100;
+        el.textContent = `${improvement.toFixed(1)}%`;
+    }
+
 });
 

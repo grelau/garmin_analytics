@@ -14,9 +14,22 @@ def parse_fc_date(date_str: str):
     dt = datetime.fromisoformat(date_str)
     return dt.replace(tzinfo=None)
 
-def diff_days_months(start_str, end_str, fmt="%Y-%m-%d"):
-    start = datetime.strptime(start_str, fmt)
-    end = datetime.strptime(end_str, fmt)
+def diff_days_months(start_str, end_str, activities, fmt="%Y-%m-%d"):
+    if start_str == "":
+        start = activities[0][0]
+        start = start.split(' ')[0]
+        print(start)
+        start = datetime.strptime(start, "%Y-%m-%d")
+        print(start)
+    else:
+        start = datetime.strptime(start_str, fmt)
+        print(start)
+    if end_str == "":
+        end = datetime.today()
+        print(end)
+    else:
+        end = datetime.strptime(end_str, fmt)
+        print(end)
 
     delta = end - start
     days = delta.days
@@ -93,10 +106,8 @@ def performances_data():
     print(len(activities))
     tr_stats = get_training_stats(items, sport)
 
-    print(tr_stats)
-
-    days, month = diff_days_months(start, end)
-
+    days, month = diff_days_months(start, end, activities)
+    #si pas de start (l'activité la plus vieille), si pas de end(today)
     print(days, month)
 
     tr_stats['total_duration'] = tr_stats['total_duration'] / 3600
