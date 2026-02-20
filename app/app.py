@@ -6,9 +6,17 @@ from datetime import datetime, timedelta
 
 RUNNING_LABELS = ['running', 'track_running', 'obstacle_run']
 CYCLING_LABELS = ['road_biking', 'virtual_ride', 'cycling', 'indoor_cycling']
+SWIMMING_LABELS = ['lap_swimming', 'swimming']
 
 dynamodb = boto3.resource("dynamodb")
 table = dynamodb.Table("ActivitiesTable")
+
+def format_pace_min_km(min_decimal: float) -> str:
+    minutes = int(min_decimal)
+    seconds = round((min_decimal - minutes) * 60)
+
+    return f"{minutes}'{seconds:02d}"
+
 
 def parse_fc_date(date_str: str):
     dt = datetime.fromisoformat(date_str)
@@ -18,18 +26,13 @@ def diff_days_months(start_str, end_str, activities, fmt="%Y-%m-%d"):
     if start_str == "":
         start = activities[0][0]
         start = start.split(' ')[0]
-        print(start)
         start = datetime.strptime(start, "%Y-%m-%d")
-        print(start)
     else:
         start = datetime.strptime(start_str, fmt)
-        print(start)
     if end_str == "":
         end = datetime.today()
-        print(end)
     else:
         end = datetime.strptime(end_str, fmt)
-        print(end)
 
     delta = end - start
     days = delta.days
@@ -37,26 +40,19 @@ def diff_days_months(start_str, end_str, activities, fmt="%Y-%m-%d"):
     # mois fractionnels (approximation basée sur 30.44 jours = moyenne réelle)
     months = days / 30.44
 
-    return days / 7, months
+    years = days / 365.25
+
+    return days / 7, months, years
 
 def build_pr_history(sorted_array):
     pr_history = {}
     best_so_far = {}
-#    MAX_TIME = {
-#    "5000": 40 * 60,
-#    "10000": 80 * 60,
-#    "21098": 3 * 3600,
-#    "42195": 6 * 3600
-#}
 
     for date, distances in sorted_array:
         for distance, value in distances.items():
 
             if value is None:
                 continue
-
-            #if distance in MAX_TIME and value > MAX_TIME[distance]:
-            #    continue
 
             # initialisation si première fois
             if distance not in best_so_far:
@@ -97,18 +93,18 @@ def performances_data():
     )
 
     items = response["Items"]
-    print(len(items))
     if sport == 'cycling':
         activities = [(item["startTimeLocal"], item["activity_best_times"]) for item in items if item['activityType']['typeKey'] in CYCLING_LABELS]
     elif sport == 'running':
         activities = [(item["startTimeLocal"], item["activity_best_times"]) for item in items if item['activityType']['typeKey'] in RUNNING_LABELS]
+    elif sport == 'all':
+        activities = [(item["startTimeLocal"], item["activity_best_times"]) for item in items]
     activities = sorted(activities, key=lambda x: x[0])
-    print(len(activities))
     tr_stats = get_training_stats(items, sport)
 
-    days, month = diff_days_months(start, end, activities)
+    days, month, year = diff_days_months(start, end, activities)
     #si pas de start (l'activité la plus vieille), si pas de end(today)
-    print(days, month)
+    print(days, month, year)
 
     tr_stats['total_duration'] = tr_stats['total_duration'] / 3600
     tr_stats['total_distance'] = tr_stats['total_distance'] / 1000
@@ -118,6 +114,9 @@ def performances_data():
 
     tr_stats['monthly_duration'] = tr_stats['duration'] / 3600 / month
     tr_stats['monthly_distance'] = tr_stats['distance'] / 1000 / month
+
+    tr_stats['yearly_duration'] = tr_stats['duration'] / 3600 / year
+    tr_stats['yearly_distance'] = tr_stats['distance'] / 1000 / year
 
     all_stats = {
         'training': tr_stats,
@@ -135,6 +134,9 @@ def get_training_stats(items, sport):
     elif sport == 'running':
         all_activities = [(int(item["duration"]), int(item["distance"])) for item in all_items if item['activityType']['typeKey'] in RUNNING_LABELS]
         activities = [(int(item["duration"]), int(item["distance"])) for item in items if item['activityType']['typeKey'] in RUNNING_LABELS]
+    elif sport == 'all':
+        all_activities = [(int(item["duration"]), int(item["distance"])) for item in all_items]
+        activities = [(int(item["duration"]), int(item["distance"])) for item in items]
     tr_stats = {
         'total_distance': 0,
         'total_duration': 0,
@@ -168,15 +170,31 @@ def activities():
     events = []
 
     for item in response["Items"]:
+        title = item["activityType"]["typeKey"]
+        distance = float(item["distance"])
+        duration = int(item["duration"])
+        speed = get_average_speed(title, distance, duration)
         events.append({
             "id": item["activity_id"],
-            "title": item["activityType"]["typeKey"].capitalize(),
+            "title": title.capitalize(),
             "start": item["startTimeLocal"].split(" ")[0],  # YYYY-MM-
-            "distance": item["distance"],
-            "duration_sec": int(item["duration"])
+            "distance": distance,
+            "duration_sec": duration,
+            "speed": speed
         })
 
     return jsonify(events)
+
+def get_average_speed(title, distance, duration):
+    print(distance, duration)
+    if distance is None or distance == 0.0 or duration is None:
+        return ""
+    if title in CYCLING_LABELS:
+        return f"{round(distance/duration*3.6,1)}km/h"
+    elif title in SWIMMING_LABELS:
+        return f"{format_pace_min_km(duration/distance*100/60)}min/100m"
+    else:
+        return f"{format_pace_min_km(duration/distance*1000/60)}min/km"
 
 @app.route("/api/hr-zones")
 def hr_zones():

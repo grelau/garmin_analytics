@@ -7,6 +7,16 @@ document.addEventListener("DOMContentLoaded", function () {
     // chart global
     let prChart = null;
 
+    function formatHoursToHM(hoursFloat) {
+        const hours = Math.floor(hoursFloat);
+        const minutes = Math.round((hoursFloat - hours) * 60);
+        if (hours === 0) {
+            return `${minutes}min`;
+        }
+
+        return `${hours}h${minutes.toString().padStart(2, "0")}min`;
+    }
+
     // charge le sport et les stats
     function loadPerformance(sport) {
         const startDate = startDateInput.value || "";
@@ -30,6 +40,14 @@ document.addEventListener("DOMContentLoaded", function () {
 
     // ---- Chart PR ----
     function initChart(data, sport) {
+
+        if (sport == 'all') {
+            if (prChart) {
+                prChart.destroy();
+                prChart = null;
+            }
+            return;
+        }
 
         const distanceMapBySport = {
             running: { "5000": "5k", "10000": "10k", "12000": "12k", "14000":"14k", "20000":"20k", "21098": "21k", "42195": "42k" },
@@ -133,9 +151,10 @@ document.addEventListener("DOMContentLoaded", function () {
 
         document.getElementById("improvement").textContent = `Select a distance to show`;
 
-        document.getElementById("weeklyVolume").textContent = `${data.weekly_distance.toFixed(1)}km`;
-        document.getElementById("monthlyVolume").textContent = `${data.monthly_distance.toFixed(1)}km`;
-        document.getElementById("totalVolume").textContent = `${data.total_distance.toFixed(1)}km`;
+        document.getElementById("weeklyVolume").textContent = `${data.weekly_distance.toFixed(1)}km | ${formatHoursToHM(data.weekly_duration)}`;
+        document.getElementById("monthlyVolume").textContent = `${data.monthly_distance.toFixed(1)}km | ${formatHoursToHM(data.monthly_duration)}`;
+        document.getElementById("yearlyVolume").textContent = `${data.yearly_distance.toFixed(1)}km | ${formatHoursToHM(data.yearly_duration)}`;
+        document.getElementById("totalVolume").textContent = `${data.total_distance.toFixed(1)}km | ${formatHoursToHM(data.total_duration)}`;
     }
 
     function updateImprovement(first, last) {

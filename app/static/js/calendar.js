@@ -56,7 +56,8 @@ document.addEventListener('DOMContentLoaded', function() {
                         <div>
                             <strong>${arg.event.title}</strong><br>
                             ${(d.distance / 1000).toFixed(1)} km<br>
-                            ${formatDuration(d.duration_sec)}
+                            ${formatDuration(d.duration_sec)}<br>
+                            ${d.speed}<br>
                         </div>
                     `
                 };
