@@ -40,7 +40,7 @@ def request(event, context):
     dynamo_ids = [int(item['activity_id']) for item in activities_dynamo_data]
     dynamo_ids.sort()
 
-    s3_response = s3.list_objects_v2(Bucket=bucket_name, Prefix=f"{user_id}/") #FILTRER PAR USER_id
+    s3_response = s3.list_objects_v2(Bucket=bucket_name, Prefix=f"{user_id}/") #FILTRER PAR USER_id, retourne max 1000 objets gérer la pagination plus tard
     s3_files = s3_response.get('Contents', [])
     s3_ids = [int(object['Key'].split('.json')[0]) for object in s3_files]
     s3_ids.sort()
