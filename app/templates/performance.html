@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+
+{% block title %}Performance{% endblock %}
+
+{% block content %}
+
+<div class="performance-page">
+
+  <!-- Bloc de contrôle -->
+  <div class="controls">
+    <label for="sportSelector">Sport :</label>
+    <select id="sportSelector">
+      <option value="all">All</option>
+      <option value="running">🏃 Running</option>
+      <option value="cycling">🚴 Cycling</option>
+    </select>
+
+    <label for="startDate">Du :</label>
+    <input type="date" id="startDate">
+
+    <label for="endDate">Au :</label>
+    <input type="date" id="endDate">
+  </div>
+
+  <!-- Bloc principal -->
+  <div class="main-content" style="display:flex; gap:20px;">
+    
+    <!-- Graphique PR -->
+    <canvas id="prChart" style="flex:2;"></canvas>
+
+    <!-- Bloc stats -->
+    <div class="stats" style="flex:1;">
+      <p>Amélioration : <span id="improvement">0%</span></p>
+      <p>Volume hebdo moyen : <span id="weeklyVolume">0h</span></p>
+      <p>Volume mensuel moyen : <span id="monthlyVolume">0h</span></p>
+      <p>Volume annuel moyen : <span id="yearlyVolume">0h</span></p>
+      <p>Volume à vie : <span id="totalVolume">0h</span></p>
+    </div>
+
+  </div>
+</div>
+
+<script src="{{ url_for('static', filename='js/performance.js') }}"></script>
+
+{% endblock %}

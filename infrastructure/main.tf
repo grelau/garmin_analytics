@@ -19,7 +19,7 @@ provider "aws" {
   region = "eu-west-3"
 }
 
-
+# Activities S3 bucket
 resource "aws_s3_bucket" "garmin_activity_bucket" {
   bucket = "garmin-activity-bucket"
 
@@ -27,105 +27,49 @@ resource "aws_s3_bucket" "garmin_activity_bucket" {
     Name = "garmin-activity-bucket"
   }
 }
-
+#Activities Dynamo DB
 resource "aws_dynamodb_table" "activities" {
-  name         = "ActivitiesTable"
+  name         = "Activities"
   billing_mode = "PAY_PER_REQUEST"
-  hash_key     = "activity_id"
+
+  hash_key  = "user_id"
+  range_key = "activity_id"
+
+  attribute {
+    name = "user_id"
+    type = "N"
+  }
 
   attribute {
     name = "activity_id"
     type = "N"
   }
+
+  attribute {
+    name = "startTimeLocal"
+    type = "S"
+  }
+
+  global_secondary_index {
+    name            = "user_date_index"
+    hash_key        = "user_id"
+    range_key       = "startTimeLocal"
+    projection_type = "ALL"
+  }
+}
+#Users Dynamo DB
+resource "aws_dynamodb_table" "users" {
+  name         = "Users"
+  billing_mode = "PAY_PER_REQUEST"
+  hash_key     = "user_id"
+
+  attribute {
+    name = "user_id"
+    type = "N"
+  }
 }
 
-
-
-resource "aws_iam_role" "lambda_exec_role" {
-  name = "collect-lambda-role"
-
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [{
-      Effect    = "Allow"
-      Action    = "sts:AssumeRole"
-      Principal = { Service = "lambda.amazonaws.com" }
-    }]
-  })
-}
-
-
-resource "aws_iam_policy" "lambda_logs" {
-  name = "lambda-logs-policy"
-
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [{
-      Effect = "Allow"
-      Action = [
-        "logs:CreateLogGroup",
-        "logs:CreateLogStream",
-        "logs:PutLogEvents"
-      ]
-      Resource = "*"
-    }]
-  })
-}
-
-resource "aws_iam_policy" "lambda_s3" {
-  name = "lambda-s3-policy"
-
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [{
-      Effect = "Allow"
-      Action = [
-        "s3:PutObject",
-        "s3:GetObject",
-        "s3:ListBucket"
-      ]
-      Resource = [
-        aws_s3_bucket.garmin_activity_bucket.arn,
-        "${aws_s3_bucket.garmin_activity_bucket.arn}/*"
-      ]
-    }]
-  })
-}
-
-resource "aws_iam_policy" "lambda_dynamodb" {
-  name = "lambda-dynamodb-policy"
-
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [{
-      Effect = "Allow"
-      Action = [
-        "dynamodb:PutItem",
-        "dynamodb:UpdateItem",
-        "dynamodb:Scan",
-        "dynamodb:BatchWriteItem"
-      ]
-      Resource = aws_dynamodb_table.activities.arn
-    }]
-  })
-}
-
-
-resource "aws_iam_role_policy_attachment" "logs" {
-  role       = aws_iam_role.lambda_exec_role.name
-  policy_arn = aws_iam_policy.lambda_logs.arn
-}
-
-resource "aws_iam_role_policy_attachment" "s3" {
-  role       = aws_iam_role.lambda_exec_role.name
-  policy_arn = aws_iam_policy.lambda_s3.arn
-}
-
-resource "aws_iam_role_policy_attachment" "dynamodb" {
-  role       = aws_iam_role.lambda_exec_role.name
-  policy_arn = aws_iam_policy.lambda_dynamodb.arn
-}
-
+#INGESTION LAMBDA
 resource "aws_lambda_function" "collect_lambda" {
   function_name = "collect-garmin-activities"
   runtime       = "python3.13"
@@ -149,7 +93,115 @@ resource "aws_lambda_function" "collect_lambda" {
 
 }
 
+#ROLE EXEC LAMBDA
+resource "aws_iam_role" "lambda_exec_role" {
+  name = "collect-lambda-role"
 
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect    = "Allow"
+      Action    = "sts:AssumeRole"
+      Principal = { Service = "lambda.amazonaws.com" }
+    }]
+  })
+}
+
+#POLICY LAMBDA LOGS
+resource "aws_iam_policy" "lambda_logs" {
+  name = "lambda-logs-policy"
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect = "Allow"
+      Action = [
+        "logs:CreateLogGroup",
+        "logs:CreateLogStream",
+        "logs:PutLogEvents"
+      ]
+      Resource = "*"
+    }]
+  })
+}
+#POLICY LAMBDA <==> Activities DYNAMO DB
+resource "aws_iam_policy" "lambda_dynamodb_users" {
+  name = "lambda-users-policy"
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect = "Allow"
+      Action = [
+        "dynamodb:Scan"
+      ]
+      Resource = aws_dynamodb_table.users.arn
+    }]
+  })
+}
+
+#POLICY LAMBDA <==> Activities DYNAMO DB
+resource "aws_iam_policy" "lambda_dynamodb_activities" {
+  name = "lambda-activities-policy"
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect = "Allow"
+      Action = [
+        "dynamodb:PutItem",
+        "dynamodb:UpdateItem",
+        "dynamodb:Scan",
+        "dynamodb:BatchWriteItem"
+      ]
+      Resource = aws_dynamodb_table.activities.arn
+    }]
+  })
+}
+
+#POLICY LAMBDA ==> S3
+resource "aws_iam_policy" "lambda_s3" {
+  name = "lambda-s3-policy"
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect = "Allow"
+      Action = [
+        "s3:PutObject",
+        "s3:GetObject",
+        "s3:ListBucket"
+      ]
+      Resource = [
+        aws_s3_bucket.garmin_activity_bucket.arn,
+        "${aws_s3_bucket.garmin_activity_bucket.arn}/*"
+      ]
+    }]
+  })
+}
+
+
+resource "aws_iam_role_policy_attachment" "logs" {
+  role       = aws_iam_role.lambda_exec_role.name
+  policy_arn = aws_iam_policy.lambda_logs.arn
+}
+
+resource "aws_iam_role_policy_attachment" "s3" {
+  role       = aws_iam_role.lambda_exec_role.name
+  policy_arn = aws_iam_policy.lambda_s3.arn
+}
+
+resource "aws_iam_role_policy_attachment" "dynamodb_activities" {
+  role       = aws_iam_role.lambda_exec_role.name
+  policy_arn = aws_iam_policy.lambda_dynamodb_activities.arn
+}
+
+resource "aws_iam_role_policy_attachment" "dynamodb_users" {
+  role       = aws_iam_role.lambda_exec_role.name
+  policy_arn = aws_iam_policy.lambda_dynamodb_users.arn
+}
+
+#CRON LAMBDA
 resource "aws_cloudwatch_event_rule" "daily_trigger" {
   name                = "collect-garmin-daily"
   schedule_expression = "cron(30 21 * * ? *)"
