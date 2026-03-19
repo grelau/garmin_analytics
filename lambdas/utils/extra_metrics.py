@@ -33,6 +33,10 @@ def get_activity_pr(activity: dict, target_distance: int, activity_duration: int
     i = 0
 
     for j in range(len(metrics)):
+        if metrics[j]['metrics'][distance] is None:
+            continue
+        while metrics[i]['metrics'][distance] is None:
+            i+=1
         while metrics[j]['metrics'][distance] - metrics[i]['metrics'][distance] >= target_distance:
             duration = metrics[j]['metrics'][time] - metrics[i]['metrics'][time]
 
@@ -44,9 +48,9 @@ def get_activity_pr(activity: dict, target_distance: int, activity_duration: int
     return best_time
 
 
-def get_activity_records(garmin, activity_id, label, activity_duration, activity_distance) -> dict:
+def get_activity_records(activity, activity_id, label, activity_duration, activity_distance) -> dict:
     """retourne un dict de records par distance adapté au type d'activité"""
-
+    logger.info(f'computing PRs for activity: {activity_id}')
     if label in CYCLING_LABELS:
         DISTANCES = CYCLING_DISTANCES
     elif label in SWIMMING_LABELS:
@@ -54,11 +58,10 @@ def get_activity_records(garmin, activity_id, label, activity_duration, activity
     elif label in RUNNING_LABELS:
         DISTANCES = RUNNING_DISTANCES
     else:
-        logger.info(f'{int_id} not in cycling, running or swimming label, label: {label}, not computing PRs')
+        logger.info(f'{activity_id} not in cycling, running or swimming label, label: {label}, not computing PRs')
         return None
     
     int_id = int(activity_id)
-    activity = garmin.get_activity_details(activity_id)
     prs = {}
     for distance in DISTANCES:
         if activity_distance >= distance:
@@ -73,10 +76,10 @@ def get_activity_records(garmin, activity_id, label, activity_duration, activity
     return prs
 
 
-def get_zones_distribution(garmin, activity_id: int, label: str, HR_ZONE_MAPPING: dict, duration: float) -> dict:
+def get_zones_distribution(activity: dict, activity_id: int, label: str, HR_ZONE_MAPPING: dict, duration: float) -> dict:
     """renvoie un dictionnaire de temps passé dans chaque zone cardiaque
     pour un json d'une activité donnée"""
-    activity = garmin.get_activity_details(activity_id)
+    logger.info(f'computing zones for activity: {activity_id}')
     fall_back_dict = {
         'z0': 0,
         'z1': 0,
@@ -98,7 +101,7 @@ def get_zones_distribution(garmin, activity_id: int, label: str, HR_ZONE_MAPPING
             logger.info("no HR or no duration")
             return fall_back_dict
     except TypeError:
-        logger.error("no json metrics")
+        logger.info(f"no json metrics for {activity_id}")
         return fall_back_dict
 
     metrics = activity['activityDetailMetrics']

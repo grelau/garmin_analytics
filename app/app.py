@@ -9,7 +9,7 @@ CYCLING_LABELS = ['road_biking', 'virtual_ride', 'cycling', 'indoor_cycling']
 SWIMMING_LABELS = ['lap_swimming', 'swimming']
 
 dynamodb = boto3.resource("dynamodb")
-table = dynamodb.Table("ActivitiesTable")
+table = dynamodb.Table("Activities")
 
 def format_pace_min_km(min_decimal: float) -> str:
     minutes = int(min_decimal)
@@ -48,7 +48,12 @@ def build_pr_history(sorted_array):
     pr_history = {}
     best_so_far = {}
 
+    #print(sorted_array[0])
+
     for date, distances in sorted_array:
+        print(date, distances)
+        if distances is None:
+            continue
         for distance, value in distances.items():
 
             if value is None:
@@ -94,9 +99,9 @@ def performances_data():
 
     items = response["Items"]
     if sport == 'cycling':
-        activities = [(item["startTimeLocal"], item["activity_best_times"]) for item in items if item['activityType']['typeKey'] in CYCLING_LABELS]
+        activities = [(item["startTimeLocal"], item["activity_best_times"]) for item in items if item['activityType'] in CYCLING_LABELS]
     elif sport == 'running':
-        activities = [(item["startTimeLocal"], item["activity_best_times"]) for item in items if item['activityType']['typeKey'] in RUNNING_LABELS]
+        activities = [(item["startTimeLocal"], item["activity_best_times"]) for item in items if item['activityType'] in RUNNING_LABELS]
     elif sport == 'all':
         activities = [(item["startTimeLocal"], item["activity_best_times"]) for item in items]
     activities = sorted(activities, key=lambda x: x[0])
@@ -104,7 +109,6 @@ def performances_data():
 
     days, month, year = diff_days_months(start, end, activities)
     #si pas de start (l'activité la plus vieille), si pas de end(today)
-    print(days, month, year)
 
     tr_stats['total_duration'] = tr_stats['total_duration'] / 3600
     tr_stats['total_distance'] = tr_stats['total_distance'] / 1000
@@ -129,11 +133,11 @@ def get_training_stats(items, sport):
     response = table.scan()
     all_items = response["Items"]
     if sport == 'cycling':
-        all_activities = [(int(item["duration"]), int(item["distance"])) for item in all_items if item['activityType']['typeKey'] in CYCLING_LABELS]
-        activities = [(int(item["duration"]), int(item["distance"])) for item in items if item['activityType']['typeKey'] in CYCLING_LABELS]
+        all_activities = [(int(item["duration"]), int(item["distance"])) for item in all_items if item['activityType'] in CYCLING_LABELS]
+        activities = [(int(item["duration"]), int(item["distance"])) for item in items if item['activityType'] in CYCLING_LABELS]
     elif sport == 'running':
-        all_activities = [(int(item["duration"]), int(item["distance"])) for item in all_items if item['activityType']['typeKey'] in RUNNING_LABELS]
-        activities = [(int(item["duration"]), int(item["distance"])) for item in items if item['activityType']['typeKey'] in RUNNING_LABELS]
+        all_activities = [(int(item["duration"]), int(item["distance"])) for item in all_items if item['activityType'] in RUNNING_LABELS]
+        activities = [(int(item["duration"]), int(item["distance"])) for item in items if item['activityType'] in RUNNING_LABELS]
     elif sport == 'all':
         all_activities = [(int(item["duration"]), int(item["distance"])) for item in all_items]
         activities = [(int(item["duration"]), int(item["distance"])) for item in items]
@@ -170,7 +174,7 @@ def activities():
     events = []
 
     for item in response["Items"]:
-        title = item["activityType"]["typeKey"]
+        title = item["activityType"]
         distance = float(item["distance"])
         duration = int(item["duration"])
         speed = get_average_speed(title, distance, duration)
@@ -186,7 +190,6 @@ def activities():
     return jsonify(events)
 
 def get_average_speed(title, distance, duration):
-    print(distance, duration)
     if distance is None or distance == 0.0 or duration is None:
         return ""
     if title in CYCLING_LABELS:
@@ -206,7 +209,6 @@ def hr_zones():
     start = parse_fc_date(start)
     end = parse_fc_date(end)
 
-    # rendre end exclusif pour un between inclusif
     end = end - timedelta(seconds=1)
 
     start = start.strftime("%Y-%m-%d %H:%M:%S")
@@ -277,7 +279,6 @@ def total_volume():
     start = parse_fc_date(start)
     end = parse_fc_date(end)
 
-    # rendre end exclusif pour un between inclusif
     end = end - timedelta(seconds=1)
 
     start = start.strftime("%Y-%m-%d %H:%M:%S")
@@ -302,8 +303,6 @@ def total_volume():
 
     volume['total_distance'] = round(volume['total_distance'] / 1000, 2)
     volume['total_duration'] = seconds_to_hours_minutes(volume['total_duration'])
-    
-    print(volume)
 
     return jsonify(volume)
 

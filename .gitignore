@@ -2,9 +2,9 @@
 /dev_scripts
 /collect_lambda_env
 app/app_env/
-/collect/package
+/lambdas/package
 
-/collect/collect.zip
+/lambdas/lambdas.zip
 
 /infrastructure/env.tfvars
 /infrastructure/.terraform

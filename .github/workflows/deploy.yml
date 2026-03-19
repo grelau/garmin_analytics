@@ -40,9 +40,10 @@ jobs:
         pip --version
         pip install -r requirements.txt -t package/
         cp collect.py package/
+        cp process.py package/
         cp -r utils package/ 
         cd package
-        zip -r ../collect.zip .
+        zip -r ../lambdas.zip .
 
     - name: Terraform Init
       working-directory: ./infrastructure
